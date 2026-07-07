@@ -1,0 +1,60 @@
+name: Build and Deploy .NET App
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build-job:
+    runs-on: windows-latest
+
+    steps:
+
+      - name: checkout code
+        uses: actions/checkout@v4.1.7
+
+      - name: Set up .NET Core
+        uses: actions/setup-dotnet@v4.0.1
+        with:
+          dotnet-version: '8.x'
+
+      - name: Build code
+        run: dotnet build --configuration Release
+
+      - name: Publish code
+        run: dotnet publish -c Release --property:PublishDir="${{env.DOTNET_ROOT}}\myapp"
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4.3.6
+        with:
+          # Artifact name
+          name: .net-app
+          path: ${{env.DOTNET_ROOT}}\myapp
+
+  deploy_job:
+    runs-on: windows-latest
+    needs: build-job
+    env:
+      package-name: .net-app
+      app-name: azureapp1
+      deployment-slot: production
+      
+    steps:
+      
+      - name: Download artifact from build job
+        uses: actions/download-artifact@v4.1.8
+        with:
+          name: ${{ env.package-name }}
+
+      - name: Secret Information
+        run: echo "Value of secret matches - ${{ secrets.AZURE_PUBLISH_PROFILE  == 'Placeholder' }}"
+
+      - name: Print name of App Service to deploy to
+        run: echo "App will be deployed to ${{ env.app-name }}"
+      
+      - name: List files in root directory
+        run: |
+          Get-ChildItem -Path . | ForEach-Object { Write-Output $_.Name }
+        shell: pwsh
